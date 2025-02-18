@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        label 'docker-agent'
-    }
+    agent any  // This will run on any available agent
 
     stages {
         stage('Checkout Code') {
