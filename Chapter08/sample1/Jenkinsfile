@@ -102,6 +102,7 @@ pipeline {
         	sh './gradlew jacocoTestReport'  // Make sure the report is generated
     }
 }
+}
         stage('Publish Reports') {
     steps {
         script {
