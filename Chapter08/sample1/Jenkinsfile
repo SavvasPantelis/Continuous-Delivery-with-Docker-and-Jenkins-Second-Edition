@@ -126,7 +126,7 @@ pipeline {
             echo 'Pipeline ran perfectly'
         }
         failure {
-            echo 'Pipeline failed'
+            echo 'Pipeline failure'
         }
     }
 }
