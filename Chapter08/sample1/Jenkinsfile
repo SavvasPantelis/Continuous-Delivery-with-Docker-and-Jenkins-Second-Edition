@@ -4,60 +4,114 @@ pipeline {
             image 'jenkins/agent' // Containerized agent
         }
     }
-    triggers {
-        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes
-    }
+
     environment {
         GITHUB_CREDENTIALS = credentials('4bbbd11b-0a17-4799-a95a-6c68f32e0e71')
     }
+
+    triggers {
+        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes
+    }
+
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'master', credentialsId: '4bbbd11b-0a17-4799-a95a-6c68f32e0e71', url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+                git branch: 'master', credentialsId: '4bbbd11b-0a17-4799-a95a-6c68f32e0e71', 
+                    url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
             }
         }
 
-       stage('Detect Changes') {
-    steps {
-        script {
-            def isGitRepo = sh(script: "cd ${env.WORKSPACE} && git rev-parse --is-inside-work-tree || echo 'false'", returnStdout: true).trim()
-            if (isGitRepo == 'true') {
-                def changes = sh(script: "cd ${env.WORKSPACE} && git diff --name-only HEAD~1 || echo ''", returnStdout: true).trim()
-                env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
-            } else {
-                env.JAVA_CHANGED = 'false'
-                echo "Skipping 'git diff' because this is the first commit or workspace was wiped."
+        stage('Detect Changes') {
+            steps {
+                script {
+                    def isGitRepo = sh(script: "cd ${env.WORKSPACE} && git rev-parse --is-inside-work-tree || echo 'false'", returnStdout: true).trim()
+                    if (isGitRepo == 'true') {
+                        def changes = sh(script: "cd ${env.WORKSPACE} && git diff --name-only HEAD~1 || echo ''", returnStdout: true).trim()
+                        env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
+                    } else {
+                        env.JAVA_CHANGED = 'false'
+                        echo "Skipping 'git diff' because this is the first commit or workspace was wiped."
+                    }
+                }
             }
         }
-    }
-}
-
 
         stage('Run Standard Tests') {
             steps {
-                echo 'Running all standard tests...'
-                sh './run_tests.sh' // Adjust to your actual test script
+                script {
+                    sh '''
+                        cd Chapter08/sample1
+                        chmod +x gradlew
+                        ./gradlew test
+                    '''
+                }
             }
         }
 
-        stage('Run Java-Specific Tests') {
+        stage('Run Code Coverage Test') {
             when {
                 expression { env.JAVA_CHANGED == 'true' }
             }
             steps {
-                echo 'Java files modified, running CodeCoverage and Checkstyle...'
-                sh './run_code_coverage.sh' // Replace with actual command
-                sh './run_checkstyle.sh' // Replace with actual command
+                script {
+                    sh '''
+                        cd Chapter08/sample1
+                        ./gradlew jacocoTestReport
+                    '''
+                }
+            }
+        }
+
+        stage('Run JaCoCo Test Coverage Verification') {
+            steps {
+                script {
+                    sh '''
+                        cd Chapter08/sample1
+                        ./gradlew jacocoTestCoverageVerification
+                    '''
+                }
+            }
+        }
+
+        stage('Run Checkstyle Test') {
+            steps {
+                script {
+                    sh '''
+                        cd Chapter08/sample1
+                        ./gradlew checkstyleMain
+                    '''
+                }
+            }
+        }
+
+        stage('Run Checkstyle Test for Tests') {
+            steps {
+                script {
+                    sh '''
+                        cd Chapter08/sample1
+                        ./gradlew checkstyleTest
+                    '''
+                }
+            }
+        }
+
+        stage('Publish Reports') {
+            steps {
+                publishHTML(target: [
+                    reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
+                    reportFiles: 'index.html',
+                    reportName: "JaCoCo Report"
+                ])
             }
         }
     }
 
     post {
         success {
-            echo 'pipeline ran perfectly'
+            echo 'Pipeline ran perfectly'
         }
         failure {
-            echo 'pipeline failed'
+            echo 'Pipeline failed'
         }
     }
 }
