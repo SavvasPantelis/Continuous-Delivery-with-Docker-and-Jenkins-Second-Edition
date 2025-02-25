@@ -97,6 +97,8 @@ pipeline {
 
 	stage('Run JaCoCo Test Report') {
     		steps {
+		dir('Chapter08/sample1') {  // Ensure we are in the correct directory
+                 sh 'chmod +x gradlew'  // Ensure gradlew has execute permission
         	sh './gradlew jacocoTestReport'  // Make sure the report is generated
     }
 }
