@@ -96,17 +96,21 @@ pipeline {
         }
 
         stage('Publish Reports') {
-            steps {
-		script {
-			sleep(5)
-		}
-                publishHTML(target: [
-                    reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
-                    reportFiles: 'index.html',
-                    reportName: "JaCoCo Report"
-                ])
-            }
+    steps {
+        script {
+            // Print out workspace to confirm location
+            sh 'echo "Workspace Path: $WORKSPACE"'
+            // Print the directory contents
+            sh 'ls -l /var/jenkins_home/workspace/github-pipeline/Chapter08/sample1/build/reports/jacoco/test/html'
         }
+        publishHTML(target: [
+            reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
+            reportFiles: 'index.html',
+            reportName: "JaCoCo Report"
+        ])
+    }
+}
+
     }
 
     post {
