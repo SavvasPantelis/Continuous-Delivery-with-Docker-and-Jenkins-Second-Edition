@@ -1,44 +1,56 @@
 pipeline {
-    agent any  // This will run on any available agent
-
+    agent {
+        docker {
+            image 'jenkins/agent' // Containerized agent
+        }
+    }
+    triggers {
+        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes
+    }
+    environment {
+        GITHUB_CREDENTIALS = credentials('4bbbd11b-0a17-4799-a95a-6c68f32e0e71')
+    }
     stages {
         stage('Checkout Code') {
             steps {
-                git url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git', branch: 'master'
-                sh 'cd Chapter08/sample1 && chmod +x gradlew'
+                git branch: 'main', credentialsId: '4bbbd11b-0a17-4799-a95a-6c68f32e0e71', url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition/tree/master'
             }
         }
 
-        stage('Run Tests') {
+        stage('Detect Changes') {
             steps {
-                sh 'cd Chapter08/sample1 && ./gradlew test'
-            }
-        }
-
-        stage('Run Code Coverage Check') {
-            steps {
-                sh 'cd Chapter08/sample1 && ./gradlew jacocoTestCoverageVerification'
-            }
-            post {
-                failure {
-                    echo 'Code coverage test failed! Check the Jacoco report.'
+                script {
+                    def changes = sh(script: "git diff --name-only HEAD~1", returnStdout: true).trim()
+                    env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
                 }
             }
         }
 
-        stage('Run Checkstyle') {
+        stage('Run Standard Tests') {
             steps {
-                sh 'cd Chapter08/sample1 && ./gradlew checkstyleMain'
+                echo 'Running all standard tests...'
+                sh './run_tests.sh' // Adjust to your actual test script
             }
-            post {
-                always {
-                    publishHTML(target: [
-                        reportDir: 'Chapter08/sample1/build/reports/checkstyle',
-                        reportFiles: 'main.html',
-                        reportName: 'Checkstyle Report'
-                    ])
-                }
+        }
+
+        stage('Run Java-Specific Tests') {
+            when {
+                expression { env.JAVA_CHANGED == 'true' }
             }
+            steps {
+                echo 'Java files modified, running CodeCoverage and Checkstyle...'
+                sh './run_code_coverage.sh' // Replace with actual command
+                sh './run_checkstyle.sh' // Replace with actual command
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'pipeline ran perfectly'
+        }
+        failure {
+            echo 'pipeline failure'
         }
     }
 }
