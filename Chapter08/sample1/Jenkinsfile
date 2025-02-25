@@ -20,8 +20,14 @@ pipeline {
        stage('Detect Changes') {
     steps {
         script {
-            def changes = sh(script: "cd ${env.WORKSPACE} && git diff --name-only HEAD~1", returnStdout: true).trim()
-            env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
+            def isGitRepo = sh(script: "cd ${env.WORKSPACE} && git rev-parse --is-inside-work-tree || echo 'false'", returnStdout: true).trim()
+            if (isGitRepo == 'true') {
+                def changes = sh(script: "cd ${env.WORKSPACE} && git diff --name-only HEAD~1 || echo ''", returnStdout: true).trim()
+                env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
+            } else {
+                env.JAVA_CHANGED = 'false'
+                echo "Skipping 'git diff' because this is the first commit or workspace was wiped."
+            }
         }
     }
 }
