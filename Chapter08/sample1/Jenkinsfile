@@ -17,14 +17,15 @@ pipeline {
             }
         }
 
-        stage('Detect Changes') {
-            steps {
-                script {
-                    def changes = sh(script: "git diff --name-only HEAD~1", returnStdout: true).trim()
-                    env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
-                }
-            }
+       stage('Detect Changes') {
+    steps {
+        script {
+            def changes = sh(script: "cd ${env.WORKSPACE} && git diff --name-only HEAD~1", returnStdout: true).trim()
+            env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
         }
+    }
+}
+
 
         stage('Run Standard Tests') {
             steps {
