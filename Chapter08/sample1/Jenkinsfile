@@ -13,7 +13,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', credentialsId: '4bbbd11b-0a17-4799-a95a-6c68f32e0e71', url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition/tree/master'
+                git branch: 'main', credentialsId: '4bbbd11b-0a17-4799-a95a-6c68f32e0e71', url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
             }
         }
 
