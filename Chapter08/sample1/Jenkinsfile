@@ -8,14 +8,18 @@ pipeline {
                     // Change working directory to where Jenkinsfile & gradlew are located
                     dir('Chapter08/sample1') {
                         if (env.BRANCH_NAME == 'master' || env.CHANGE_TARGET == 'master') {
+                            if (env.BRANCH_NAME.contains('invalid') || env.CHANGE_ID) {
+                                echo 'Invalid branch attempting PR - failing pipeline'
+                                error 'Invalid branch - pipeline failed'
+                            }
                             echo 'Running CodeCoverage tests on main branch or PR targeting master'
-                            sh 'chmod +x gradlew' // Ensure gradlew is executable
-                            sh './gradlew test jacocoTestReport' // Run tests and generate Jacoco report
-			    sh './gradlew jacocoTestCoverageVerification'	
+                            sh 'chmod +x gradlew'
+                            sh './gradlew test jacocoTestReport'
+                            sh './gradlew jacocoTestCoverageVerification'
                         } else if (env.BRANCH_NAME.contains('feature') || env.CHANGE_TARGET.contains('feature')) {
                             echo 'Running all tests except CodeCoverage on feature branch or PR targeting feature'
-                            sh 'chmod +x gradlew' // Ensure gradlew is executable
-                            sh './gradlew test' // Run all tests except CodeCoverage
+                            sh 'chmod +x gradlew'
+                            sh './gradlew test'
                         } else {
                             echo 'Branch is not main or feature, failing pipeline'
                             error 'Invalid branch - pipeline failed'
