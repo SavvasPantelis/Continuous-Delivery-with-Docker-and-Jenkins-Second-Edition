@@ -1,132 +1,24 @@
 pipeline {
-    agent {
-        docker {
-            image 'jenkins/agent' // Containerized agent
-        }
-    }
-
-    environment {
-        GITHUB_CREDENTIALS = credentials('4bbbd11b-0a17-4799-a95a-6c68f32e0e71')
-    }
-
-    triggers {
-        pollSCM('H/5 * * * *') // Poll GitHub every 5 minutes
-    }
+    agent any
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                git branch: 'master', credentialsId: '4bbbd11b-0a17-4799-a95a-6c68f32e0e71', 
-                    url: 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
-            }
-        }
-
-        stage('Detect Changes') {
+        stage('Run Tests') {
             steps {
                 script {
-                    def isGitRepo = sh(script: "cd ${env.WORKSPACE} && git rev-parse --is-inside-work-tree || echo 'false'", returnStdout: true).trim()
-                    if (isGitRepo == 'true') {
-                        def changes = sh(script: "cd ${env.WORKSPACE} && git diff --name-only HEAD~1 || echo ''", returnStdout: true).trim()
-                        env.JAVA_CHANGED = changes.contains('.java') ? 'true' : 'false'
+                    if (env.BRANCH_NAME == 'main') {
+                        echo 'Running CodeCoverage tests on main branch'
+                        // Run CodeCoverage test
+                        sh './gradlew test coverage'
+                    } else if (env.BRANCH_NAME.contains('feature')) {
+                        echo 'Running all tests except CodeCoverage on feature branch'
+                        // Run all tests except CodeCoverage
+                        sh './gradlew test'
                     } else {
-                        env.JAVA_CHANGED = 'false'
-                        echo "Skipping 'git diff' because this is the first commit or workspace was wiped."
+                        echo 'Branch is not main or feature, failing pipeline'
+                        error 'Invalid branch - pipeline failed'
                     }
                 }
             }
-        }
-
-        stage('Run Standard Tests') {
-            steps {
-                script {
-                    sh '''
-                        cd Chapter08/sample1
-                        chmod +x gradlew
-                        ./gradlew test
-                    '''
-                }
-            }
-        }
-
-        stage('Run Code Coverage Test') {
-            when {
-                expression { env.JAVA_CHANGED == 'true' }
-            }
-            steps {
-                script {
-                    sh '''
-                        cd Chapter08/sample1
-                        ./gradlew jacocoTestReport
-                    '''
-                }
-            }
-        }
-
-        stage('Run JaCoCo Test Coverage Verification') {
-            steps {
-                script {
-                    sh '''
-                        cd Chapter08/sample1
-                        ./gradlew jacocoTestCoverageVerification
-                    '''
-                }
-            }
-        }
-
-        stage('Run Checkstyle Test') {
-            steps {
-                script {
-                    sh '''
-                        cd Chapter08/sample1
-                        ./gradlew checkstyleMain
-                    '''
-                }
-            }
-        }
-
-        stage('Run Checkstyle Test for Tests') {
-            steps {
-                script {
-                    sh '''
-                        cd Chapter08/sample1
-                        ./gradlew checkstyleTest
-                    '''
-                }
-            }
-        }
-
-	stage('Run JaCoCo Test Report') {
-    		steps {
-		dir('Chapter08/sample1') {  // Ensure we are in the correct directory
-                 sh 'chmod +x gradlew'  // Ensure gradlew has execute permission
-        	sh './gradlew jacocoTestReport'  // Make sure the report is generated
-    }
-}
-}
-        stage('Publish Reports') {
-    steps {
-        script {
-            // Print out workspace to confirm location
-            sh 'echo "Workspace Path: $WORKSPACE"'
-            // Print the directory contents
-            sh 'ls -l /var/jenkins_home/workspace/github-pipeline/Chapter08/sample1/build/reports/jacoco/test/html'
-        }
-        publishHTML(target: [
-            reportDir: 'Chapter08/sample1/build/reports/jacoco/test/html',
-            reportFiles: 'index.html',
-            reportName: "JaCoCo Report"
-        ])
-    }
-}
-
-    }
-
-    post {
-        success {
-            echo 'Pipeline ran perfectly'
-        }
-        failure {
-            echo 'Pipeline failed'
         }
     }
 }
