@@ -7,13 +7,13 @@ pipeline {
                 script {
                     // Change working directory to where Jenkinsfile & gradlew are located
                     dir('Chapter08/sample1') {
-                        if (env.BRANCH_NAME == 'master') {
-                            echo 'Running CodeCoverage tests on main branch'
+                        if (env.BRANCH_NAME == 'master' || env.CHANGE_TARGET == 'master') {
+                            echo 'Running CodeCoverage tests on main branch or PR targeting master'
                             sh 'chmod +x gradlew' // Ensure gradlew is executable
                             sh './gradlew test jacocoTestReport' // Run tests and generate Jacoco report
-			    sh './gradlew jacocoTestCoverageVerification'
-                        } else if (env.BRANCH_NAME.contains('feature')) {
-                            echo 'Running all tests except CodeCoverage on feature branch'
+			    sh './gradlew jacocoTestCoverageVerification'	
+                        } else if (env.BRANCH_NAME.contains('feature') || env.CHANGE_TARGET.contains('feature')) {
+                            echo 'Running all tests except CodeCoverage on feature branch or PR targeting feature'
                             sh 'chmod +x gradlew' // Ensure gradlew is executable
                             sh './gradlew test' // Run all tests except CodeCoverage
                         } else {
