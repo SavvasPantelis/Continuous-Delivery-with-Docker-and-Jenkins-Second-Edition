@@ -5,17 +5,20 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'master') {
-                        echo 'Running CodeCoverage tests on main branch'
-                        // Run CodeCoverage test
-                        sh './gradlew test coverage'
-                    } else if (env.BRANCH_NAME.contains('feature')) {
-                        echo 'Running all tests except CodeCoverage on feature branch'
-                        // Run all tests except CodeCoverage
-                        sh './gradlew test'
-                    } else {
-                        echo 'Branch is not main or feature, failing pipeline'
-                        error 'Invalid branch - pipeline failed'
+                    // Change working directory to where Jenkinsfile & gradlew are located
+                    dir('Chapter08/sample1') {
+                        if (env.BRANCH_NAME == 'master') {
+                            echo 'Running CodeCoverage tests on main branch'
+                            sh 'chmod +x gradlew' // Ensure gradlew is executable
+                            sh './gradlew test coverage' // Run CodeCoverage test
+                        } else if (env.BRANCH_NAME.contains('feature')) {
+                            echo 'Running all tests except CodeCoverage on feature branch'
+                            sh 'chmod +x gradlew' // Ensure gradlew is executable
+                            sh './gradlew test' // Run all tests except CodeCoverage
+                        } else {
+                            echo 'Branch is not main or feature, failing pipeline'
+                            error 'Invalid branch - pipeline failed'
+                        }
                     }
                 }
             }
