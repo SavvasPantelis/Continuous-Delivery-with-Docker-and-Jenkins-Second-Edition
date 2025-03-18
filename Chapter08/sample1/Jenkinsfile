@@ -3,10 +3,14 @@ pipeline {
     stages {
         stage('Checkout') { steps { checkout scm } }
         stage('Build & Test') {
-            steps { sh './gradlew clean test jacocoTestReport --no-daemon' }
-        }
+          steps {
+              sh 'chmod +x gradlew'
+              sh './gradlew clean test jacocoTestReport --no-daemon'
+  }
+}
+
         stage('Coverage') {
-            when { branch 'main' }
+            when { branch 'master' }
             steps { sh './gradlew jacocoTestReport --no-daemon' }
         }
     }
@@ -17,4 +21,3 @@ pipeline {
         }
     }
 }
-
