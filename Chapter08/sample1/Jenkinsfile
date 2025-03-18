@@ -1,23 +1,30 @@
 pipeline {
     agent any
-    stages {
-        stage('Checkout') { steps { checkout scm } }
-        stage('Build & Test') {
-	  steps {
-      	      sh 'chmod +x gradlew'
-      	      sh './gradlew clean test jacocoTestReport --no-daemon'
-  }
-}
 
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Build & Test') {
+            steps {
+                sh 'chmod +x gradlew'
+                sh './gradlew clean test jacocoTestReport --no-daemon'
+            }
+        }
         stage('Coverage') {
-            when { branch 'master' }
-            steps { sh './gradlew jacocoTestReport --no-daemon' }
+            when { branch 'main' }
+            steps {
+                sh './gradlew jacocoTestReport --no-daemon'
+            }
         }
     }
+
     post {
         always {
             jacoco execPattern: '**/build/jacoco/*.exec'
-            echo currentBuild.currentResult == 'SUCCESS' ? 'tests pass!' : 'tests fail!'
+            echo currentBuild.result == 'SUCCESS' ? 'tests pass!' : 'tests fail!'
         }
     }
 }
