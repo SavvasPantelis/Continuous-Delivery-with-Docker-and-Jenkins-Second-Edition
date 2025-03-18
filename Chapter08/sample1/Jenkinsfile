@@ -3,9 +3,15 @@ pipeline {
     stages {
         stage('Checkout') { steps { checkout scm } }
         stage('Build & Test') {
+  feature/test-pass
           steps {
               sh 'chmod +x gradlew'
               sh './gradlew clean test jacocoTestReport --no-daemon'
+
+	  steps {
+      	      sh 'chmod +x gradlew'
+      	      sh './gradlew clean test jacocoTestReport --no-daemon'
+master
   }
 }
 
