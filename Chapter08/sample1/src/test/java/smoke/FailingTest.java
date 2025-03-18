@@ -1,11 +1,12 @@
 package smoke;
 
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.fail;
+import org.junit.Test;
+import static org.junit.Assert.fail;
 
 public class FailingTest {
+
 	    @Test
-	        void shouldAlwaysFail() {
+	        public void shouldAlwaysFail() {
 			        fail("Intentionally failing to demonstrate pipeline failure.");
 				    }
 }
