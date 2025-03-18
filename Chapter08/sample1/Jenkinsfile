@@ -6,7 +6,7 @@ pipeline {
             steps { sh './gradlew clean test jacocoTestReport --no-daemon' }
         }
         stage('Coverage') {
-            when { branch 'main' }
+            when { branch 'master' }
             steps { sh './gradlew jacocoTestReport --no-daemon' }
         }
     }
