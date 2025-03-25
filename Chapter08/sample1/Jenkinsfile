@@ -40,9 +40,8 @@ pipeline {
 
         stage('Build Docker Image') {
             when {
-                expression {
-                    return env.BRANCH_NAME != 'playground' && currentBuild.result == 'SUCCESS'
-                }
+                branch 'master' 
+                branch 'feature'
             }
             steps {
                 script {
