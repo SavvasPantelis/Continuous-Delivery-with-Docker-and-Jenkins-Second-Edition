@@ -1,9 +1,7 @@
 pipeline {
     agent any
     environment {
-feature
-        REGISTRY = 'localhost:5001' //test
-        REGISTRY = 'localhost:5001'  
+        REGISTRY = 'localhost:5001' //test  
     }
 
     stages {
@@ -16,13 +14,17 @@ feature
         stage('Run Tests') {
             steps {
                 script {
-                    if (env.BRANCH_NAME == 'master') {
-                         sh './gradlew clean test jacocoTestReport --no-daemon'
-                    } else if (env.BRANCH_NAME == 'feature') {
-                         sh './gradlew clean test --no-daemon'
-                    } else if (env.BRANCH_NAME == 'playground') {
- 
-                        sh './gradlew clean test --no-daemon'
+                    dir('Chapter08/sample1') { 
+                        if (env.BRANCH_NAME == 'master') {
+                    
+                            sh './gradlew clean test jacocoTestReport --no-daemon'
+                        } else if (env.BRANCH_NAME == 'feature') {
+                    
+                            sh './gradlew clean test --no-daemon'
+                        } else if (env.BRANCH_NAME == 'playground') {
+                   
+                            sh './gradlew clean test --no-daemon'
+                        }
                     }
                 }
             }
@@ -33,15 +35,17 @@ feature
                 branch 'master'
             }
             steps {
- 
-                sh './gradlew jacocoTestReport --no-daemon'
+                dir('Chapter08/sample1') {
+                  
+                    sh './gradlew jacocoTestReport --no-daemon'
+                }
             }
         }
 
         stage('Build Docker Image') {
             when {
                 expression {
-                       return env.BRANCH_NAME != 'playground' && currentBuild.result == 'SUCCESS'
+                    return env.BRANCH_NAME != 'playground' && currentBuild.result == 'SUCCESS'
                 }
             }
             steps {
@@ -56,13 +60,17 @@ feature
                         imageName = 'calculator'
                     }
 
-                       sh """
-                    docker build -t ${REGISTRY}/${imageName}:${version} .
-                    """
+                    dir('Chapter08/sample1') {  
+  
+                        sh """
+                        docker build -t ${REGISTRY}/${imageName}:${version} .
+                        """
 
-                      sh """
-                    docker push ${REGISTRY}/${imageName}:${version}
-                    """
+ 
+                        sh """
+                        docker push ${REGISTRY}/${imageName}:${version}
+                        """
+                    }
                 }
             }
         }
