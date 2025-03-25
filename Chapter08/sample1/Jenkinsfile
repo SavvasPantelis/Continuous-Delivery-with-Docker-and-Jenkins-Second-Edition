@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        REGISTRY = 'localhost:5001'  // Local Docker registry
+        REGISTRY = 'localhost:5001'  
     }
 
     stages {
