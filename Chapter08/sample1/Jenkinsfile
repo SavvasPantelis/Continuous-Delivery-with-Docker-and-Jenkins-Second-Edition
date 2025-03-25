@@ -1,7 +1,9 @@
 pipeline {
     agent any
     environment {
+feature
         REGISTRY = 'localhost:5001' //test
+        REGISTRY = 'localhost:5001'  
     }
 
     stages {
