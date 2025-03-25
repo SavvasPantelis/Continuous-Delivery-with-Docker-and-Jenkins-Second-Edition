@@ -39,10 +39,6 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            when {
-                branch 'master' 
-                branch 'feature'
-            }
             steps {
                 script {
                     def imageName
