@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        REGISTRY = 'localhost:5001' //test  
+        REGISTRY = 'localhost:5001'
     }
 
     stages {
@@ -14,15 +14,12 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
-                    dir('Chapter08/sample1') { 
+                    dir('Chapter08/sample1') {
                         if (env.BRANCH_NAME == 'master') {
-                    
                             sh './gradlew clean test jacocoTestReport --no-daemon'
                         } else if (env.BRANCH_NAME == 'feature') {
-                    
                             sh './gradlew clean test --no-daemon'
                         } else if (env.BRANCH_NAME == 'playground') {
-                   
                             sh './gradlew clean test --no-daemon'
                         }
                     }
@@ -36,7 +33,6 @@ pipeline {
             }
             steps {
                 dir('Chapter08/sample1') {
-                  
                     sh './gradlew jacocoTestReport --no-daemon'
                 }
             }
@@ -60,13 +56,10 @@ pipeline {
                         imageName = 'calculator'
                     }
 
-                    dir('Chapter08/sample1') {  
-  
+                    dir('Chapter08/sample1') {
                         sh """
                         docker build -t ${REGISTRY}/${imageName}:${version} .
                         """
-
- 
                         sh """
                         docker push ${REGISTRY}/${imageName}:${version}
                         """
@@ -86,3 +79,4 @@ pipeline {
         }
     }
 }
+
