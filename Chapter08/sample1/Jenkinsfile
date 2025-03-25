@@ -1,5 +1,8 @@
 pipeline {
     agent any
+    environment {
+        REGISTRY = 'localhost:5001'  // Local Docker registry
+    }
 
     stages {
         stage('Checkout') {
@@ -7,27 +10,69 @@ pipeline {
                 checkout scm
             }
         }
-        stage('Build & Test') {
+
+        stage('Run Tests') {
             steps {
-                dir('Chapter08/sample1') {
-                    sh 'chmod +x gradlew'
-                    sh './gradlew clean test jacocoTestReport --no-daemon'
+                script {
+                    if (env.BRANCH_NAME == 'master') {
+                         sh './gradlew clean test jacocoTestReport --no-daemon'
+                    } else if (env.BRANCH_NAME == 'feature') {
+                         sh './gradlew clean test --no-daemon'
+                    } else if (env.BRANCH_NAME == 'playground') {
+ 
+                        sh './gradlew clean test --no-daemon'
+                    }
                 }
             }
         }
-        stage('Coverage') {
-            when { branch 'main' }
+
+        stage('Code Coverage') {
+            when {
+                branch 'master'
+            }
             steps {
-                dir('Chapter08/sample1') {
-                    sh './gradlew jacocoTestReport --no-daemon'
+ 
+                sh './gradlew jacocoTestReport --no-daemon'
+            }
+        }
+
+        stage('Build Docker Image') {
+            when {
+                expression {
+                       return env.BRANCH_NAME != 'playground' && currentBuild.result == 'SUCCESS'
+                }
+            }
+            steps {
+                script {
+                    def imageName
+                    def version = '1.0'
+
+                    if (env.BRANCH_NAME == 'feature') {
+                        imageName = 'calculator-feature'
+                        version = '0.1'
+                    } else if (env.BRANCH_NAME == 'master') {
+                        imageName = 'calculator'
+                    }
+
+                       sh """
+                    docker build -t ${REGISTRY}/${imageName}:${version} .
+                    """
+
+                      sh """
+                    docker push ${REGISTRY}/${imageName}:${version}
+                    """
                 }
             }
         }
     }
+
     post {
-        always {
-            jacoco execPattern: '**/build/jacoco/*.exec'
-            echo currentBuild.result == 'SUCCESS' ? 'tests pass!' : 'tests fail!'
+        success {
+            echo "Build and tests completed successfully."
+        }
+
+        failure {
+            echo "Build or tests failed. No container will be created."
         }
     }
 }
