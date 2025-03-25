@@ -5,6 +5,8 @@ pipeline {
         DOCKER_REGISTRY = "localhost:5001"
         IMAGE_NAME = "calculator"
         VERSION = "1.0"
+        DOCKER_USER = "testuser"  
+        DOCKER_PASSWORD = "testpassword"
     }
 
     stages {
@@ -64,6 +66,14 @@ pipeline {
                     dir('Chapter08/sample1') {
                         sh "docker build -t ${imageTag} ."
                     }
+                }
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                script {
+                    sh "echo $DOCKER_PASSWORD | docker login $DOCKER_REGISTRY -u $DOCKER_USER --password-stdin"
                 }
             }
         }
