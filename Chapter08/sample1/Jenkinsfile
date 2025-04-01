@@ -2,14 +2,11 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY_URL = 'localhost:5001'
-        IMAGE_NAME = 'calculator'
-        VERSION = '1.0'
-        CALCULATOR_URL = 'http://localhost:5001'
+        CALCULATOR_URL = "http://localhost:5001"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
             }
@@ -17,99 +14,89 @@ pipeline {
 
         stage('Ensure gradlew is executable') {
             steps {
-                sh 'chmod +x Chapter08/sample1/gradlew'
-                sh 'chmod +x Chapter09/sample1/gradlew'  // Make gradlew executable for Chapter09 as well
+                sh 'chmod +x gradlew'
             }
         }
 
         stage('Run Tests') {
             steps {
-                script {
-                    dir('Chapter08/sample1') {
-                        sh './gradlew clean build --no-daemon'
-                    }
-                    dir('Chapter08/sample1') {
-                        sh './gradlew test jacocoTestReport --no-daemon'
-                    }
+                dir('Chapter09/sample1') {
+                    sh './gradlew clean build --no-daemon'
+                    sh './gradlew test jacocoTestReport --no-daemon'
                 }
             }
         }
 
         stage('Code Coverage') {
             steps {
-                script {
-                    dir('Chapter08/sample1') {
-                        sh './gradlew jacocoTestReport --no-daemon'
-                    }
+                dir('Chapter09/sample1') {
+                    sh './gradlew jacocoTestReport --no-daemon'
                 }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    dir('Chapter08/sample1') {
-                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION} .'
-                    }
+                dir('Chapter09/sample1') {
+                    sh 'docker build -t localhost:5001/calculator:1.0 .'
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    sh "docker push ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION}"
-                }
-            }
-        }
-
-        stage('Run Acceptance Tests') {
-            steps {
-                script {
-                    // Make sure to navigate to Chapter09 directory where the tests are
-                    dir('Chapter09/sample1') {
-                        // Run acceptance tests
-                        sh './gradlew acceptanceTest --no-daemon'
-                    }
-                }
-            }
-        }
-
-        stage('Publish Test Report') {
-            steps {
-                publishHTML(target: [
-                    reportName: 'Acceptance Test Report',
-                    reportDir: 'build/reports/tests/acceptanceTest',
-                    reportFiles: 'index.html',
-                    alwaysLinkToLastBuild: true
-                ])
+                sh 'docker push localhost:5001/calculator:1.0'
             }
         }
 
         stage('Test Docker Container') {
             steps {
                 script {
-                    sh "docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION}"
-                    sleep(5)
-                    sh "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=2"
-                    sh "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=0"
-                    sh "docker rm -f calculator"
+                    def container_id = sh(script: "docker run -d --name calculator localhost:5001/calculator:1.0", returnStdout: true).trim()
+                    sleep(5)  // Wait for container to start
+
+                    // Test divide 6 by 2
+                    def result = sh(script: "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=2", returnStdout: true).trim()
+                    if (result == "3") {
+                        echo "Divide test passed"
+                    } else {
+                        echo "Divide test failed"
+                        currentBuild.result = 'FAILURE'
+                    }
+
+                    // Test divide by 0
+                    def errorResult = sh(script: "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=0", returnStdout: true).trim()
+                    if (errorResult.contains("error")) {
+                        echo "Divide by 0 error handled"
+                    } else {
+                        echo "Divide by 0 test failed"
+                        currentBuild.result = 'FAILURE'
+                    }
+
+                    // Clean up
+                    sh "docker rm -f ${container_id}"
+                }
+            }
+        }
+
+        stage('Publish Test Report') {
+            steps {
+                dir('Chapter09/sample1') {
+                    junit '**/build/test-classes/acceptanceTest/*.xml'
                 }
             }
         }
 
         stage('Cleanup') {
             steps {
-                script {
-                    sh 'docker rm -f calculator || true'
-                }
-            }
-        }
-
-        stage('Post Actions') {
-            steps {
                 cleanWs()
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed'
         }
     }
 }
