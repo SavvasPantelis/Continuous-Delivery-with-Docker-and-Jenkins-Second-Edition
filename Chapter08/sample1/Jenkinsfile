@@ -1,16 +1,12 @@
 pipeline {
     agent any
-
     environment {
-        DOCKER_REGISTRY = "localhost:5001"
-        IMAGE_NAME = "calculator"
-        VERSION = "1.0"
-        DOCKER_USER = "testuser"  
-        DOCKER_PASSWORD = "testpassword"
+        REGISTRY_URL = 'localhost:5001'    // Your registry URL
+        CALCULATOR_IMAGE = 'calculator'    // Image name for the calculator
+        CALCULATOR_VERSION = '1.0'         // Version of the calculator image
     }
-
     stages {
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
                 checkout scm
             }
@@ -18,99 +14,61 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                script {
-                    dir('Chapter08/sample1') {
-                        sh './gradlew clean test --no-daemon'
-                    }
-                }
-            }
-        }
-
-        stage('Build Jar') {
-            steps {
-                script {
-                    dir('Chapter08/sample1') {
-                        sh './gradlew build --no-daemon'
-                    }
+                dir('Chapter08/sample1') {  // Referring to the directory where your Gradle files are
+                    sh './gradlew clean test jacocoTestReport --no-daemon'
                 }
             }
         }
 
         stage('Code Coverage') {
             when {
-                branch 'master'
+                branch 'master'  // Only runs on the master branch
             }
             steps {
-                script {
-                    dir('Chapter08/sample1') {
-                        sh './gradlew jacocoTestReport --no-daemon'
-                    }
+                dir('Chapter08/sample1') {  // Referring to the directory where your Gradle files are
+                    sh './gradlew jacocoTestReport --no-daemon'
                 }
             }
         }
 
         stage('Build Docker Image') {
             when {
-                not {
-                    branch 'playground'
-                }
+                branch 'master'  // Only builds Docker image on master branch
             }
             steps {
                 script {
-                    def imageTag = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${VERSION}"
-
-                    if (env.BRANCH_NAME == 'feature') {
-                        imageTag = "${DOCKER_REGISTRY}/${IMAGE_NAME}-feature:${VERSION}"
+                    if (currentBuild.result == 'SUCCESS') {
+                        docker.build("${REGISTRY_URL}/${CALCULATOR_IMAGE}:${CALCULATOR_VERSION}", "Chapter08/sample1")
                     }
-
-                    dir('Chapter08/sample1') {
-                        sh "docker build -t ${imageTag} ."
-                    }
-                }
-            }
-        }
-
-        stage('Docker Login') {
-            steps {
-                script {
-                    sh "echo $DOCKER_PASSWORD | docker login $DOCKER_REGISTRY -u $DOCKER_USER --password-stdin"
                 }
             }
         }
 
         stage('Push Docker Image') {
             when {
-                not {
-                    branch 'playground'
-                }
+                branch 'master'  // Push image only for the master branch
             }
             steps {
                 script {
-                    def imageTag = "${DOCKER_REGISTRY}/${IMAGE_NAME}:${VERSION}"
-
-                    if (env.BRANCH_NAME == 'feature') {
-                        imageTag = "${DOCKER_REGISTRY}/${IMAGE_NAME}-feature:${VERSION}"
-                    }
-
-                    dir('Chapter08/sample1') {
-                        sh "docker push ${imageTag}"
-                    }
+                    def imageTag = "${REGISTRY_URL}/${CALCULATOR_IMAGE}:${CALCULATOR_VERSION}"
+                    sh "docker push ${imageTag}"   // Push the built image to the registry
                 }
             }
         }
 
+        stage('Cleanup') {
+            steps {
+                script {
+                    // Remove any leftover containers
+                    sh 'docker rm -f hazelcast'
+                    sh 'docker rm -f calculator'
+                }
+            }
+        }
     }
-
     post {
         always {
-            echo 'Cleaning up after the build.'
-            cleanWs()
-        }
-        success {
-            echo 'Build and tests completed successfully.'
-        }
-        failure {
-            echo 'Build or tests failed. No container will be created.'
+            cleanWs()  // Clean workspace after build
         }
     }
 }
