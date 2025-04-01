@@ -1,6 +1,6 @@
 buildscript {
     dependencies {
-        classpath 'com.h2database:h2:1.4.199'
+        classpath('com.h2database:h2:1.4.199')
     }
 }
 
@@ -47,16 +47,11 @@ checkstyle {
     checkstyleTest.enabled = false
 }
 
+// Ensure no duplicate definition of 'acceptanceTest' task
 task acceptanceTest(type: Test) {
     include '**/acceptance/**'
     systemProperties System.getProperties()
     jacoco.enabled = false // Disable Jacoco for this task
-}
-
-
-task acceptanceTest(type: Test) {
-    include '**/acceptance/**'
-    systemProperties System.getProperties()
 }
 
 task smokeTest(type: Test) {
