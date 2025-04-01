@@ -2,74 +2,78 @@ pipeline {
     agent any
 
     environment {
-        // Adjust to reference Chapter09 for tests but Dockerfile is in Chapter08
-        CHAPTER09_DIR = 'Chapter09/sample1'
-        CHAPTER08_DIR = 'Chapter08/sample1'
-        GRADLEW = 'gradlew'
+        CALCULATOR_JAR = 'Chapter08/sample1/build/libs/calculator-0.0.1-SNAPSHOT.jar' // Reference to the JAR file built from Chapter08
+        REPORT_DIR = 'build/reports/tests/acceptanceTest' // Path for acceptance test reports
     }
 
     stages {
-        stage('Checkout Repository') {
+        stage('Checkout SCM') {
             steps {
-                // Clone the repository
-                git 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
+                script {
+                    // Checkout the code from the repository
+                    checkout scm
+                }
             }
         }
 
         stage('Ensure gradlew is executable') {
             steps {
-                // Make gradlew executable in Chapter09
-                sh 'chmod +x ${CHAPTER09_DIR}/gradlew'
+                sh 'chmod +x Chapter09/sample1/gradlew'
+            }
+        }
+
+        stage('Build JAR') {
+            steps {
+                dir('Chapter08/sample1') {
+                    // Build the JAR file from Chapter08
+                    sh './gradlew clean build --no-daemon'
+                }
             }
         }
 
         stage('Run Acceptance Tests') {
             steps {
-                dir("${CHAPTER09_DIR}") {
-                    // Running the acceptance tests for Chapter09
-                    sh "./gradlew acceptanceTest --no-daemon"
+                dir('Chapter09/sample1') {
+                    // Run the acceptance tests
+                    sh './gradlew acceptanceTest --no-daemon'
                 }
             }
         }
 
         stage('Publish Test Report') {
             steps {
-                // Publish the test report generated in Chapter09 directory
-                junit '**/build/reports/tests/acceptanceTest/index.html'
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                dir("${CHAPTER08_DIR}") {
-                    // Build Docker image using Dockerfile in Chapter08
-                    sh "docker build -t localhost:5001/calculator:1.0 -f Dockerfile ."
+                script {
+                    // Publish the HTML report of acceptance tests in Jenkins
+                    junit '**/build/reports/tests/acceptanceTest/*.xml'
+                    publishHTML(target: [
+                        reportName: 'Acceptance Test Report',
+                        reportDir: "${env.WORKSPACE}/Chapter09/sample1/${env.REPORT_DIR}",
+                        reportFiles: 'index.html',
+                        keepAll: true
+                    ])
                 }
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                // Push Docker image to the repository
-                sh "docker push localhost:5001/calculator:1.0"
-            }
-        }
-
-        stage('Test Docker Container') {
-            steps {
-                // Run the Docker container and test it
-                sh 'docker run -d --name calculator localhost:5001/calculator:1.0'
-                sleep 5
-                sh 'curl -s localhost:5001:8080/div?a=6&b=3'
             }
         }
 
         stage('Cleanup') {
             steps {
-                // Cleanup workspace and Docker containers
-                cleanWs()
-                sh 'docker rm -f calculator'
+                script {
+                    sh 'docker rm -f calculator || true'
+                    cleanWs()
+                }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline completed!'
+        }
+        success {
+            echo 'Build and tests were successful!'
+        }
+        failure {
+            echo 'There were errors in the pipeline!'
         }
     }
 }
