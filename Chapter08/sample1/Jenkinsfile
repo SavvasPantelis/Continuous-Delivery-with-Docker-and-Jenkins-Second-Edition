@@ -2,15 +2,13 @@ pipeline {
     agent any
 
     environment {
-        CALCULATOR_JAR = 'Chapter08/sample1/build/libs/calculator-0.0.1-SNAPSHOT.jar' // Reference to the JAR file built from Chapter08
-        REPORT_DIR = 'build/reports/tests/acceptanceTest' // Path for acceptance test reports
+        REPORT_DIR = 'build/reports/tests/acceptanceTest' // Ensure this points to the right folder for XML reports
     }
 
     stages {
         stage('Checkout SCM') {
             steps {
                 script {
-                    // Checkout the code from the repository
                     checkout scm
                 }
             }
@@ -43,14 +41,8 @@ pipeline {
         stage('Publish Test Report') {
             steps {
                 script {
-                    // Publish the HTML report of acceptance tests in Jenkins
-                    junit '**/build/reports/tests/acceptanceTest/*.xml'
-                    publishHTML(target: [
-                        reportName: 'Acceptance Test Report',
-                        reportDir: "${env.WORKSPACE}/Chapter09/sample1/${env.REPORT_DIR}",
-                        reportFiles: 'index.html',
-                        keepAll: true
-                    ])
+                    // Publish the JUnit test results in Jenkins
+                    junit '**/build/reports/tests/acceptanceTest/*.xml' // Path to the generated JUnit XML report
                 }
             }
         }
@@ -58,6 +50,7 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
+                    // Cleanup any leftover Docker containers or artifacts
                     sh 'docker rm -f calculator || true'
                     cleanWs()
                 }
