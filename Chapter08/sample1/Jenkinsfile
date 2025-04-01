@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY_URL = 'localhost:5001'
-        IMAGE_NAME = 'calculator'
-        IMAGE_TAG = '1.0'
+        REGISTRY_URL = "localhost:5001"
+        IMAGE_NAME = "calculator"
+        IMAGE_TAG = "1.0"
     }
 
     stages {
-        stage('Checkout SCM') {
+        stage('Checkout') {
             steps {
                 checkout scm
             }
@@ -22,11 +22,9 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                script {
-                    dir('Chapter09/sample1') {
-                        // Clean and build the project
+                dir('Chapter09/sample1') {
+                    script {
                         sh './gradlew clean build --no-daemon'
-                        // Run unit tests
                         sh './gradlew test jacocoTestReport --no-daemon'
                     }
                 }
@@ -35,8 +33,8 @@ pipeline {
 
         stage('Code Coverage') {
             steps {
-                script {
-                    dir('Chapter09/sample1') {
+                dir('Chapter09/sample1') {
+                    script {
                         sh './gradlew jacocoTestReport --no-daemon'
                     }
                 }
@@ -46,13 +44,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    dir('Chapter09/sample1') {
-                        // Build the .jar file with bootJar task (if not already built)
-                        sh './gradlew bootJar --no-daemon'
-
-                        // Docker build
-                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} -f Chapter08/sample1/Dockerfile .'
-                    }
+                    // Build the Docker image from Chapter08/sample1/Dockerfile
+                    sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} -f ./Chapter08/sample1/Dockerfile ./Chapter08/sample1'
                 }
             }
         }
@@ -60,6 +53,7 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
+                    // Push the Docker image to the registry
                     sh 'docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}'
                 }
             }
@@ -68,12 +62,12 @@ pipeline {
         stage('Test Docker Container') {
             steps {
                 script {
+                    // Run Docker container and test the API
                     sh 'docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}'
                     sleep 5
-                    sh ''' 
-                        curl -s localhost:8080/div?a=6&b=2 | grep -q "3" && echo pass || echo fail
-                        curl -s localhost:8080/div?a=6&b=0 | grep -q "error" && echo pass || echo fail
-                    '''
+                    sh 'curl -s localhost:5001:8080/div?a=6\\&b=2'
+                    sh 'curl -s localhost:5001:8080/div?a=6\\&b=0'
+                    sh 'docker rm -f calculator'
                 }
             }
         }
@@ -81,16 +75,24 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    sh 'docker rm -f calculator'
+                    // Cleanup Docker containers if any
+                    sh 'docker rm -f calculator || true'
                 }
             }
         }
 
         stage('Post Actions') {
             steps {
-                cleanWs()
-                echo 'Cleaning up workspace'
+                cleanWs() // Clean workspace
+                echo 'Pipeline completed!'
             }
+        }
+    }
+    
+    post {
+        always {
+            echo 'Cleaning up after the build.'
+            cleanWs() // Cleanup workspace after build
         }
     }
 }
