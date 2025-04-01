@@ -30,9 +30,6 @@ pipeline {
         }
 
         stage('Code Coverage') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
                     dir('Chapter08/sample1') {
@@ -43,9 +40,6 @@ pipeline {
         }
 
         stage('Build Docker Image') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
                     dir('Chapter08/sample1') {
@@ -56,9 +50,6 @@ pipeline {
         }
 
         stage('Push Docker Image') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
                     sh "docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
@@ -67,9 +58,6 @@ pipeline {
         }
 
         stage('Test Docker Container') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
                     sh """
