@@ -18,6 +18,7 @@ pipeline {
         stage('Ensure gradlew is executable') {
             steps {
                 sh 'chmod +x Chapter08/sample1/gradlew'
+                sh 'chmod +x Chapter09/sample1/gradlew'  // Make gradlew executable for Chapter09 as well
             }
         }
 
