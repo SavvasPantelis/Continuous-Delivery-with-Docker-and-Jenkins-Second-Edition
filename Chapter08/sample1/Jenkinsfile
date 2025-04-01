@@ -2,13 +2,13 @@ pipeline {
     agent any
 
     environment {
-        REGISTRY_URL = "localhost:5001"
-        IMAGE_NAME = "calculator"
-        IMAGE_TAG = "1.0"
+        DOCKER_REGISTRY = "localhost:5001"
+        DOCKER_IMAGE = "calculator"
+        DOCKER_TAG = "1.0"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Declarative: Checkout SCM') {
             steps {
                 checkout scm
             }
@@ -24,7 +24,7 @@ pipeline {
             steps {
                 dir('Chapter08/sample1') {
                     script {
-                        // Build the JAR in Chapter08/sample1 before Docker build
+                        // Build the jar from Chapter08
                         sh './gradlew clean build --no-daemon'
                     }
                 }
@@ -35,6 +35,7 @@ pipeline {
             steps {
                 dir('Chapter09/sample1') {
                     script {
+                        // Run tests including jacocoTestReport
                         sh './gradlew test jacocoTestReport --no-daemon'
                     }
                 }
@@ -45,6 +46,7 @@ pipeline {
             steps {
                 dir('Chapter09/sample1') {
                     script {
+                        // Run jacocoTestReport
                         sh './gradlew jacocoTestReport --no-daemon'
                     }
                 }
@@ -53,10 +55,11 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    // Build the Docker image from Chapter08/sample1/Dockerfile
-                    // Adjust path to the jar in Chapter08/sample1
-                    sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} -f Chapter08/sample1/Dockerfile Chapter08/sample1'
+                dir('Chapter08/sample1') {
+                    script {
+                        // Build Docker image using Dockerfile from Chapter08
+                        sh 'docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} -f Chapter08/sample1/Dockerfile Chapter08/sample1'
+                    }
                 }
             }
         }
@@ -64,8 +67,8 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    // Push the Docker image to the registry
-                    sh 'docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}'
+                    // Push the built Docker image to registry
+                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
                 }
             }
         }
@@ -73,11 +76,15 @@ pipeline {
         stage('Test Docker Container') {
             steps {
                 script {
-                    // Run Docker container and test the API
-                    sh 'docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}'
+                    // Run the Docker container
+                    sh 'docker run -d --name calculator ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}'
                     sleep 5
-                    sh 'curl -s localhost:5001:8080/div?a=6\\&b=2'
-                    sh 'curl -s localhost:5001:8080/div?a=6\\&b=0'
+
+                    // Correct the curl commands and test them
+                    sh 'curl -s localhost:5001/div?a=6\\&b=2'  // Corrected the curl URL
+                    sh 'curl -s localhost:5001/div?a=6\\&b=0'  // Corrected the curl URL
+                    
+                    // Clean up Docker container
                     sh 'docker rm -f calculator'
                 }
             }
@@ -86,24 +93,17 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    // Cleanup Docker containers if any
-                    sh 'docker rm -f calculator || true'
+                    // Clean up any leftover containers
+                    sh 'docker rm -f hazelcast || true'  // Optional, if hazelcast exists
                 }
             }
         }
 
         stage('Post Actions') {
             steps {
-                cleanWs() // Clean workspace
-                echo 'Pipeline completed!'
+                echo "Cleaning up after the build."
+                cleanWs()  // Clean up workspace after build
             }
-        }
-    }
-
-    post {
-        always {
-            echo 'Cleaning up after the build.'
-            cleanWs() // Cleanup workspace after build
         }
     }
 }
