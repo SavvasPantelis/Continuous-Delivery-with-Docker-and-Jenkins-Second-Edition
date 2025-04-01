@@ -2,109 +2,73 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_REGISTRY = "localhost:5001"
-        DOCKER_IMAGE = "calculator"
-        DOCKER_TAG = "1.0"
+        // Adjust to reference Chapter09 for tests but Dockerfile is in Chapter08
+        CHAPTER09_DIR = 'Chapter09/sample1'
+        CHAPTER08_DIR = 'Chapter08/sample1'
+        GRADLEW = 'gradlew'
     }
 
     stages {
-        stage('Declarative: Checkout SCM') {
+        stage('Checkout Repository') {
             steps {
-                checkout scm
+                // Clone the repository
+                git 'https://github.com/SavvasPantelis/Continuous-Delivery-with-Docker-and-Jenkins-Second-Edition.git'
             }
         }
 
         stage('Ensure gradlew is executable') {
             steps {
-                sh 'chmod +x Chapter09/sample1/gradlew'
+                // Make gradlew executable in Chapter09
+                sh 'chmod +x ${CHAPTER09_DIR}/gradlew'
             }
         }
 
-        stage('Build JAR') {
+        stage('Run Acceptance Tests') {
             steps {
-                dir('Chapter08/sample1') {
-                    script {
-                        // Build the jar from Chapter08
-                        sh './gradlew clean build --no-daemon'
-                    }
+                dir("${CHAPTER09_DIR}") {
+                    // Running the acceptance tests for Chapter09
+                    sh "./gradlew acceptanceTest --no-daemon"
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('Publish Test Report') {
             steps {
-                dir('Chapter09/sample1') {
-                    script {
-                        // Run tests including jacocoTestReport
-                        sh './gradlew test jacocoTestReport --no-daemon'
-                    }
-                }
-            }
-        }
-
-        stage('Code Coverage') {
-            steps {
-                dir('Chapter09/sample1') {
-                    script {
-                        // Run jacocoTestReport
-                        sh './gradlew jacocoTestReport --no-daemon'
-                    }
-                }
+                // Publish the test report generated in Chapter09 directory
+                junit '**/build/reports/tests/acceptanceTest/index.html'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    // Build Docker image using Dockerfile from Chapter08
-                    // Use the full path for context and Dockerfile
-                    sh 'docker build -t ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG} -f Chapter08/sample1/Dockerfile Chapter08/sample1'
+                dir("${CHAPTER08_DIR}") {
+                    // Build Docker image using Dockerfile in Chapter08
+                    sh "docker build -t localhost:5001/calculator:1.0 -f Dockerfile ."
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                script {
-                    // Push the built Docker image to registry
-                    sh "docker push ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}"
-                }
+                // Push Docker image to the repository
+                sh "docker push localhost:5001/calculator:1.0"
             }
         }
 
         stage('Test Docker Container') {
             steps {
-                script {
-                    // Remove any existing container with the name "calculator" before starting a new one
-                    sh 'docker rm -f calculator || true'
-
-                    // Run the Docker container
-                    sh 'docker run -d --name calculator ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}'
-                    sleep 5
-
-                    // Correct the curl commands and test them
-                    sh 'curl -s localhost:5001/div?a=6\\&b=2'  // Corrected the curl URL
-                    sh 'curl -s localhost:5001/div?a=6\\&b=0'  // Corrected the curl URL
-                    
-                    // Clean up Docker container
-                    sh 'docker rm -f calculator'
-                }
+                // Run the Docker container and test it
+                sh 'docker run -d --name calculator localhost:5001/calculator:1.0'
+                sleep 5
+                sh 'curl -s localhost:5001:8080/div?a=6&b=3'
             }
         }
 
         stage('Cleanup') {
             steps {
-                script {
-                    // Clean up any leftover containers
-                    sh 'docker rm -f hazelcast || true'  // Optional, if hazelcast exists
-                }
-            }
-        }
-
-        stage('Post Actions') {
-            steps {
-                echo "Cleaning up after the build."
-                cleanWs()  // Clean up workspace after build
+                // Cleanup workspace and Docker containers
+                cleanWs()
+                sh 'docker rm -f calculator'
             }
         }
     }
