@@ -1,12 +1,15 @@
 pipeline {
     agent any
+
     environment {
-        REGISTRY_URL = "localhost:5001"
-        IMAGE_NAME = "calculator"
-        IMAGE_TAG = "1.0"
+        REGISTRY_URL = 'localhost:5001'
+        IMAGE_NAME = 'calculator'
+        VERSION = '1.0'
+        CALCULATOR_URL = 'http://localhost:5001'
     }
+
     stages {
-        stage('Declarative: Checkout SCM') {
+        stage('Checkout') {
             steps {
                 checkout scm
             }
@@ -22,8 +25,10 @@ pipeline {
             steps {
                 script {
                     dir('Chapter08/sample1') {
-                        sh './gradlew clean build --no-daemon'  // Ensures the JAR is built
-                        sh './gradlew test jacocoTestReport --no-daemon'  // Run tests and coverage
+                        sh './gradlew clean build --no-daemon'
+                    }
+                    dir('Chapter08/sample1') {
+                        sh './gradlew test jacocoTestReport --no-daemon'
                     }
                 }
             }
@@ -33,7 +38,7 @@ pipeline {
             steps {
                 script {
                     dir('Chapter08/sample1') {
-                        sh './gradlew jacocoTestReport --no-daemon'  // Generate code coverage report
+                        sh './gradlew jacocoTestReport --no-daemon'
                     }
                 }
             }
@@ -43,7 +48,7 @@ pipeline {
             steps {
                 script {
                     dir('Chapter08/sample1') {
-                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} .'
+                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION} .'
                     }
                 }
             }
@@ -52,20 +57,42 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    sh "docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION}"
                 }
+            }
+        }
+
+        stage('Run Acceptance Tests') {
+            steps {
+                script {
+                    // Make sure to navigate to Chapter09 directory where the tests are
+                    dir('Chapter09/sample1') {
+                        // Run acceptance tests
+                        sh './gradlew acceptanceTest --no-daemon'
+                    }
+                }
+            }
+        }
+
+        stage('Publish Test Report') {
+            steps {
+                publishHTML(target: [
+                    reportName: 'Acceptance Test Report',
+                    reportDir: 'build/reports/tests/acceptanceTest',
+                    reportFiles: 'index.html',
+                    alwaysLinkToLastBuild: true
+                ])
             }
         }
 
         stage('Test Docker Container') {
             steps {
                 script {
-                    sh """
-                        docker run -d --name ${IMAGE_NAME} ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}
-                        sleep 5
-                        curl -s localhost:8080/div?a=6\\&b=2 | grep -q '3' && echo 'pass' || echo 'fail'
-                        curl -s localhost:8080/div?a=6\\&b=0 | grep -q 'error' && echo 'pass' || echo 'fail'
-                    """
+                    sh "docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION}"
+                    sleep(5)
+                    sh "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=2"
+                    sh "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=0"
+                    sh "docker rm -f calculator"
                 }
             }
         }
@@ -73,7 +100,6 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    sh 'docker rm -f hazelcast || true'
                     sh 'docker rm -f calculator || true'
                 }
             }
