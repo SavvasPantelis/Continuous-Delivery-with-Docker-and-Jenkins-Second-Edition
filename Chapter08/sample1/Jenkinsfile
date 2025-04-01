@@ -14,15 +14,15 @@ pipeline {
 
         stage('Ensure gradlew is executable') {
             steps {
-                // Make the gradlew file executable
-                sh 'chmod +x gradlew'
+                // Make the gradlew file in the correct directory executable
+                sh 'chmod +x Chapter09/sample1/gradlew'
             }
         }
 
         stage('Run Tests') {
             steps {
                 dir('Chapter09/sample1') {
-                    // Run tests and build the project
+                    // Run tests and build the project in the correct directory
                     sh './gradlew clean build --no-daemon'
                     sh './gradlew test jacocoTestReport --no-daemon'
                 }
@@ -41,7 +41,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('Chapter09/sample1') {
-                    // Build the Docker image from the Dockerfile
+                    // Build the Docker image from the Dockerfile in the correct directory
                     sh 'docker build -t localhost:5001/calculator:1.0 .'
                 }
             }
