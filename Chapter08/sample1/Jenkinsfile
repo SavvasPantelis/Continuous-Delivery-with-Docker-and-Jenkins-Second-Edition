@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     environment {
-        // Environment variables, if needed
-        CALCULATOR_URL = 'localhost:5001'
+        REGISTRY_URL = 'localhost:5001'
+        IMAGE_NAME = 'calculator'
+        IMAGE_TAG = '1.0'
     }
 
     stages {
@@ -43,9 +44,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Specify the correct directory for the Dockerfile
                     dir('Chapter08/sample1') {
-                        sh 'docker build -t localhost:5001/calculator:1.0 .'
+                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} .'
                     }
                 }
             }
@@ -54,7 +54,7 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    sh 'docker push localhost:5001/calculator:1.0'
+                    sh 'docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}'
                 }
             }
         }
@@ -62,11 +62,11 @@ pipeline {
         stage('Test Docker Container') {
             steps {
                 script {
-                    sh '''
-                        docker run -d --name calculator localhost:5001/calculator:1.0
-                        sleep 5
-                        curl -s localhost:5001:8080/div?a=6&b=2 | grep -q 3 && echo pass || echo fail
-                        curl -s localhost:5001:8080/div?a=6&b=0 | grep -q error && echo pass || echo fail
+                    sh 'docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}'
+                    sleep 5
+                    sh ''' 
+                        curl -s localhost:8080/div?a=6&b=2 | grep -q "3" && echo pass || echo fail
+                        curl -s localhost:8080/div?a=6&b=0 | grep -q "error" && echo pass || echo fail
                     '''
                 }
             }
@@ -75,7 +75,7 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    sh 'docker rm -f calculator || true'
+                    sh 'docker rm -f calculator'
                 }
             }
         }
@@ -83,15 +83,8 @@ pipeline {
         stage('Post Actions') {
             steps {
                 cleanWs()
-                echo 'Pipeline finished successfully!'
+                echo 'Cleaning up workspace'
             }
-        }
-    }
-
-    post {
-        always {
-            echo 'Cleaning up workspace'
-            cleanWs()
         }
     }
 }
