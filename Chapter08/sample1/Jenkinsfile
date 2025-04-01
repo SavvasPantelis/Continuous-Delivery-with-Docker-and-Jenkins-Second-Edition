@@ -24,7 +24,9 @@ pipeline {
             steps {
                 script {
                     dir('Chapter09/sample1') {
+                        // Clean and build the project
                         sh './gradlew clean build --no-daemon'
+                        // Run unit tests
                         sh './gradlew test jacocoTestReport --no-daemon'
                     }
                 }
@@ -41,21 +43,15 @@ pipeline {
             }
         }
 
-        stage('Build the .jar file') {
-            steps {
-                script {
-                    dir('Chapter09/sample1') {
-                        sh './gradlew bootJar --no-daemon'
-                    }
-                }
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
-                    dir('Chapter08/sample1') {
-                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} .'
+                    dir('Chapter09/sample1') {
+                        // Build the .jar file with bootJar task (if not already built)
+                        sh './gradlew bootJar --no-daemon'
+
+                        // Docker build
+                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} -f Chapter08/sample1/Dockerfile .'
                     }
                 }
             }
