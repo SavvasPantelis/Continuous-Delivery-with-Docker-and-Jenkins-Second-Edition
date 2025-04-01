@@ -14,6 +14,7 @@ pipeline {
 
         stage('Ensure gradlew is executable') {
             steps {
+                // Make the gradlew file executable
                 sh 'chmod +x gradlew'
             }
         }
@@ -21,6 +22,7 @@ pipeline {
         stage('Run Tests') {
             steps {
                 dir('Chapter09/sample1') {
+                    // Run tests and build the project
                     sh './gradlew clean build --no-daemon'
                     sh './gradlew test jacocoTestReport --no-daemon'
                 }
@@ -30,6 +32,7 @@ pipeline {
         stage('Code Coverage') {
             steps {
                 dir('Chapter09/sample1') {
+                    // Generate the Jacoco code coverage report
                     sh './gradlew jacocoTestReport --no-daemon'
                 }
             }
@@ -38,6 +41,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('Chapter09/sample1') {
+                    // Build the Docker image from the Dockerfile
                     sh 'docker build -t localhost:5001/calculator:1.0 .'
                 }
             }
@@ -45,6 +49,7 @@ pipeline {
 
         stage('Push Docker Image') {
             steps {
+                // Push the Docker image to the local registry
                 sh 'docker push localhost:5001/calculator:1.0'
             }
         }
@@ -52,8 +57,9 @@ pipeline {
         stage('Test Docker Container') {
             steps {
                 script {
+                    // Run the container
                     def container_id = sh(script: "docker run -d --name calculator localhost:5001/calculator:1.0", returnStdout: true).trim()
-                    sleep(5)  // Wait for container to start
+                    sleep(5)  // Wait for the container to start
 
                     // Test divide 6 by 2
                     def result = sh(script: "curl -s ${CALCULATOR_URL}:8080/div?a=6&b=2", returnStdout: true).trim()
@@ -73,7 +79,7 @@ pipeline {
                         currentBuild.result = 'FAILURE'
                     }
 
-                    // Clean up
+                    // Clean up the container
                     sh "docker rm -f ${container_id}"
                 }
             }
@@ -82,6 +88,7 @@ pipeline {
         stage('Publish Test Report') {
             steps {
                 dir('Chapter09/sample1') {
+                    // Publish the acceptance test report
                     junit '**/build/test-classes/acceptanceTest/*.xml'
                 }
             }
@@ -89,6 +96,7 @@ pipeline {
 
         stage('Cleanup') {
             steps {
+                // Clean the workspace after the build
                 cleanWs()
             }
         }
