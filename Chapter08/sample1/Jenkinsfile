@@ -24,6 +24,7 @@ pipeline {
             steps {
                 dir('Chapter09/sample1') {
                     script {
+                        // Build the JAR in Chapter08/sample1 before Docker build
                         sh './gradlew clean build --no-daemon'
                         sh './gradlew test jacocoTestReport --no-daemon'
                     }
@@ -45,6 +46,7 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image from Chapter08/sample1/Dockerfile
+                    // Adjust path to the jar in Chapter08/sample1
                     sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} -f ./Chapter08/sample1/Dockerfile ./Chapter08/sample1'
                 }
             }
