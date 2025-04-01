@@ -75,6 +75,9 @@ pipeline {
         stage('Test Docker Container') {
             steps {
                 script {
+                    // Remove any existing container with the name "calculator" before starting a new one
+                    sh 'docker rm -f calculator || true'
+
                     // Run the Docker container
                     sh 'docker run -d --name calculator ${DOCKER_REGISTRY}/${DOCKER_IMAGE}:${DOCKER_TAG}'
                     sleep 5
