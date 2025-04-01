@@ -63,8 +63,8 @@ pipeline {
                     sh """
                         docker run -d --name ${IMAGE_NAME} ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}
                         sleep 5
-                        test \$(curl ${REGISTRY_URL}:8080/div?a=6\\&b=2) -eq 3 && echo 'pass' || echo 'fail'
-                        test \$(curl ${REGISTRY_URL}:8080/div?a=6\\&b=0) -eq 'error' && echo 'pass' || echo 'fail'
+                        curl -s localhost:8080/div?a=6\\&b=2 | grep -q '3' && echo 'pass' || echo 'fail'
+                        curl -s localhost:8080/div?a=6\\&b=0 | grep -q 'error' && echo 'pass' || echo 'fail'
                     """
                 }
             }
