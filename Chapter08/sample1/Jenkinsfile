@@ -7,11 +7,27 @@ pipeline {
                 checkout scm
             }
         }
-        
+
+        stage('Ensure gradlew is executable') {
+            steps {
+                sh 'chmod +x Chapter08/sample1/gradlew'
+            }
+        }
+
+        stage('Check gradlew existence') {
+            steps {
+                script {
+                    sh 'ls -la Chapter08/sample1/gradlew'
+                }
+            }
+        }
+
         stage('Run Tests') {
             steps {
                 script {
-                    sh './gradlew clean test jacocoTestReport --no-daemon'
+                    dir('Chapter08/sample1') {
+                        sh './gradlew clean test jacocoTestReport --no-daemon'
+                    }
                 }
             }
         }
@@ -22,7 +38,9 @@ pipeline {
             }
             steps {
                 script {
-                    sh './gradlew jacocoTestReport --no-daemon'
+                    dir('Chapter08/sample1') {
+                        sh './gradlew jacocoTestReport --no-daemon'
+                    }
                 }
             }
         }
@@ -47,8 +65,6 @@ pipeline {
             steps {
                 script {
                     echo "Testing the new 'div' command in the container"
-
-                    // Test division
                     def result = sh(script: "curl -s localhost:5001/calculator:1.0/div?a=6\\&b=2", returnStdout: true).trim()
                     if (result.toInteger() == 3) {
                         echo 'Pass: Division result is correct'
@@ -56,7 +72,6 @@ pipeline {
                         error "Test failed: Division result is incorrect"
                     }
 
-                    // Test division by zero
                     def zeroDivisionResult = sh(script: "curl -s localhost:5001/calculator:1.0/div?a=6\\&b=0", returnStdout: true).trim()
                     if (zeroDivisionResult == "Error: Division by Zero") {
                         echo 'Pass: Division by zero error handled correctly'
@@ -75,7 +90,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Post Actions') {
             steps {
                 cleanWs()
