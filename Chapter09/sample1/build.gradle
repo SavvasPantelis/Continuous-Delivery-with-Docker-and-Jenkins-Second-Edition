@@ -51,13 +51,6 @@ task acceptanceTest(type: Test) {
     include '**/acceptance/**'
     systemProperties System.getProperties()
     jacoco.enabled = false // Disable Jacoco for this task
-
-    // Configure the test reports to generate in JUnit format
-    reports {
-        junitXml.enabled = true
-        html.enabled = false
-        junitXml.destination = file('build/reports/tests/acceptanceTest') // Output path for XML reports
-    }
 }
 
 task smokeTest(type: Test) {
@@ -75,4 +68,6 @@ flyway {
     url = 'jdbc:h2:file:/tmp/calculator'
     user = 'sa'
 }
+
+test.finalizedBy acceptanceTest
 
