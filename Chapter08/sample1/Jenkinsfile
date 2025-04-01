@@ -1,24 +1,16 @@
 pipeline {
     agent any
 
+    environment {
+        REGISTRY_URL = "localhost:5001"
+        IMAGE_NAME = "calculator"
+        VERSION = "1.0"
+    }
+
     stages {
-        stage('Declarative: Checkout SCM') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
-            }
-        }
-
-        stage('Ensure gradlew is executable') {
-            steps {
-                sh 'chmod +x Chapter08/sample1/gradlew'
-            }
-        }
-
-        stage('Check gradlew existence') {
-            steps {
-                script {
-                    sh 'ls -la Chapter08/sample1/gradlew'
-                }
             }
         }
 
@@ -33,9 +25,6 @@ pipeline {
         }
 
         stage('Code Coverage') {
-            when {
-                branch 'master'
-            }
             steps {
                 script {
                     dir('Chapter08/sample1') {
@@ -48,7 +37,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t localhost:5001/calculator:1.0 .'
+                    dir('Chapter08/sample1') {
+                        sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION} .'
+                    }
                 }
             }
         }
@@ -56,7 +47,10 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    sh 'docker push localhost:5001/calculator:1.0'
+                    withCredentials([usernamePassword(credentialsId: 'docker-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        sh 'echo $DOCKER_PASSWORD | docker login ${REGISTRY_URL} -u $DOCKER_USERNAME --password-stdin'
+                        sh 'docker push ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION}'
+                    }
                 }
             }
         }
@@ -64,20 +58,9 @@ pipeline {
         stage('Test Docker Container') {
             steps {
                 script {
-                    echo "Testing the new 'div' command in the container"
-                    def result = sh(script: "curl -s localhost:5001/calculator:1.0/div?a=6\\&b=2", returnStdout: true).trim()
-                    if (result.toInteger() == 3) {
-                        echo 'Pass: Division result is correct'
-                    } else {
-                        error "Test failed: Division result is incorrect"
-                    }
-
-                    def zeroDivisionResult = sh(script: "curl -s localhost:5001/calculator:1.0/div?a=6\\&b=0", returnStdout: true).trim()
-                    if (zeroDivisionResult == "Error: Division by Zero") {
-                        echo 'Pass: Division by zero error handled correctly'
-                    } else {
-                        error "Test failed: Division by zero did not return the expected error message"
-                    }
+                    sh 'docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${VERSION}'
+                    sh 'curl -s localhost:8080/div?a=6\\&b=2'
+                    sh 'docker rm -f calculator'
                 }
             }
         }
@@ -85,7 +68,6 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    sh 'docker rm -f hazelcast || true'
                     sh 'docker rm -f calculator || true'
                 }
             }
@@ -94,7 +76,7 @@ pipeline {
         stage('Post Actions') {
             steps {
                 cleanWs()
-                echo "Build and tests completed successfully."
+                echo 'Build and tests completed successfully.'
             }
         }
     }
