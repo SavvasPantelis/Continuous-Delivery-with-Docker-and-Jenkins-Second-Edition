@@ -1,6 +1,11 @@
 pipeline {
     agent any
-
+    environment {
+        REGISTRY = "localhost:5001"
+        IMAGE_NAME = "calculator"
+        VERSION = "2.0"
+        DOCKER_BUILDKIT = "1"
+    }
     stages {
         stage('Checkout') {
             steps {
@@ -8,43 +13,42 @@ pipeline {
             }
         }
 
-        stage('Ensure gradlew is executable') {
+        stage('Build JAR') {
             steps {
-                // Make gradlew executable in Chapter09, assuming the gradle wrapper is in Chapter09/sample1
-                sh 'chmod +x Chapter09/sample1/gradlew'
-            }
-        }
-
-        stage('Build and Run Tests') {
-            steps {
-                dir('Chapter09/sample1') {
-                    script {
-                        // Run acceptance tests and build the jar
-                        sh './gradlew clean build acceptanceTest --no-daemon'
-                    }
+                dir('Chapter08/sample1') {
+                    sh 'chmod +x ./gradlew'
+                    sh './gradlew clean build --no-daemon'
                 }
             }
         }
 
-        stage('Publish Test Report') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    // Publish the acceptance test result
-                    junit '**/build/reports/tests/acceptanceTest/index.html'
+                    sh """
+                        docker build \
+                        -t $REGISTRY/$IMAGE_NAME:$VERSION \
+                        -f Chapter08/sample1/Dockerfile Chapter08/sample1
+                    """
                 }
             }
         }
 
-        stage('Cleanup') {
+        stage('Push Docker Image') {
             steps {
-                cleanWs()
+                withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    script {
+                        sh "docker login $REGISTRY -u $DOCKER_USER -p $DOCKER_PASS"
+                        sh "docker push $REGISTRY/$IMAGE_NAME:$VERSION"
+                    }
+                }
             }
         }
     }
 
     post {
         always {
-            echo "Cleaning up the workspace..."
+            echo 'Pipeline completed!'
             cleanWs()
         }
     }
