@@ -1,56 +1,32 @@
 pipeline {
     agent any
-    environment {
-        REGISTRY = "localhost:5001"
-        IMAGE_NAME = "calculator"
-        VERSION = "2.0"
-        DOCKER_BUILDKIT = "1"
-    }
+
     stages {
-        stage('Checkout') {
+        stage('Apply Kubernetes Configs') {
             steps {
-                checkout scm
-            }
-        }
+                echo 'running..'
 
-        stage('Build JAR') {
-            steps {
-                dir('Chapter08/sample1') {
-                    sh 'chmod +x ./gradlew'
-                    sh './gradlew clean build --no-daemon'
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    sh """
-                        docker build \
-                        -t $REGISTRY/$IMAGE_NAME:$VERSION \
-                        -f Chapter08/sample1/Dockerfile Chapter08/sample1
+                withDockerContainer(
+                    image: 'dlambrig/gradle-agent-intel:week10',
+                    args: """
+                        --network host 
+                        -u root 
+                        -v /home/savvas/.kube:/root/.kube 
+                        -v $HOME/.docker/certs.d:/etc/docker/certs.d 
+                        -v ${env.WORKSPACE}/auth:/auth 
+                        -v ${env.WORKSPACE}/certs:/certs 
+                        -v /var/run/docker.sock:/var/run/docker.sock
                     """
-                }
-            }
-        }
-
-        stage('Push Docker Image') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'docker-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        sh "docker login $REGISTRY -u $DOCKER_USER -p $DOCKER_PASS"
-                        sh "docker push $REGISTRY/$IMAGE_NAME:$VERSION"
-                    }
+                ) {
+                    sh 'kubectl --insecure-skip-tls-verify apply --validate=false -f Chapter08/sample1/hazelcast.yaml'
+                    sh 'kubectl --insecure-skip-tls-verify apply --validate=false -f Chapter08/sample1/calculator.yaml'
                 }
             }
         }
     }
 
-    post {
-        always {
-            echo 'Pipeline completed!'
-            cleanWs()
-        }
+    triggers {
+        pollSCM('H/2 * * * *')
     }
 }
 
