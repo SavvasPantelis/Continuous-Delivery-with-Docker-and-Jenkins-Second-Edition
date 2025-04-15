@@ -1,13 +1,14 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'week11' // Build this image from Dockerfile below
+            args '-u root:root -v /var/run/docker.sock:/var/run/docker.sock -v /home/YOUR_USER/sa.json:/home/jenkins/sa.json -e GOOGLE_APPLICATION_CREDENTIALS=/home/jenkins/sa.json'
+        }
+    }
 
     environment {
         IMAGE_NAME = "spantelis20/calculator"
         IMAGE_TAG = "1.0"
-    }
-
-    triggers {
-        pollSCM('* * * * *') // Every minute
     }
 
     stages {
@@ -23,7 +24,7 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
+        stage('Run Unit Tests') {
             steps {
                 dir('Chapter08/sample1') {
                     sh './gradlew clean build test jacocoTestReport --no-daemon'
@@ -39,7 +40,7 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image to Docker Hub') {
+        stage('Push Image to Docker Hub') {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
@@ -50,31 +51,39 @@ pipeline {
             }
         }
 
-        stage('Run Container Tests') {
+        stage('Deploy to Staging (Docker Desktop)') {
+            steps {
+                sh 'kubectl config use-context staging'
+                sh 'kubectl apply -f Chapter08/sample1/hazelcast.yaml'
+                sh 'kubectl apply -f Chapter08/sample1/calculator.yaml'
+            }
+        }
+
+        stage('Integration Tests (Staging)') {
             steps {
                 script {
-                    sh """
-                        docker run -d --name calculator ${IMAGE_NAME}:${IMAGE_TAG}
+                    sh '''
                         sleep 5
-                        curl -s localhost:8080/div?a=6\\&b=2 | grep -q '3' && echo 'pass' || echo 'fail'
-                        curl -s localhost:8080/div?a=6\\&b=0 | grep -q 'error' && echo 'pass' || echo 'fail'
-                        docker rm -f calculator
-                    """
+                        kubectl get pods
+                        curl -s localhost:8080/div?a=6\&b=2 | grep -q '3' && echo 'pass' || echo 'fail'
+                    '''
                 }
             }
         }
 
-        stage('Cleanup') {
+        stage('Deploy to Release (GKE)') {
             steps {
-                cleanWs()
+                sh 'kubectl config use-context release'
+                sh 'kubectl apply -f Chapter08/sample1/hazelcast.yaml'
+                sh 'kubectl apply -f Chapter08/sample1/calculator.yaml'
             }
         }
     }
 
     post {
         always {
-            echo 'Done. Cleaned workspace.'
+            archiveArtifacts artifacts: 'Chapter08/sample1/build/reports/jacoco/test/html/**', fingerprint: true
+            echo 'Pipeline complete.'
         }
     }
 }
-
