@@ -1,14 +1,11 @@
 pipeline {
-    agent {
-        docker {
-            image 'week11'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v /home/savvas/week11-agent/sa.json:/home/jenkins/sa.json'
-        }
-    }
+    agent any
+
     environment {
         DOCKER_USER = 'spantelis20'
         DOCKER_IMAGE = "${DOCKER_USER}/calculator:1.0"
     }
+
     stages {
         stage('Checkout') {
             steps {
@@ -53,10 +50,7 @@ pipeline {
                     sh 'docker run -d --name calculator $DOCKER_IMAGE'
                     sh 'sleep 5'
 
-                    // Test: 6 / 2 = 3
                     sh 'curl -s "http://localhost:8080/div?a=6&b=2" | grep -q 3 && echo pass || echo fail'
-
-                    // Test: 6 / 0 = error
                     sh 'curl -s "http://localhost:8080/div?a=6&b=0" | grep -q error && echo pass || echo fail'
 
                     sh 'docker rm -f calculator'
