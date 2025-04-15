@@ -1,32 +1,75 @@
 pipeline {
     agent any
+    environment {
+        REGISTRY_URL = "localhost:5001"
+        IMAGE_NAME = "spantelis20/calculator"
+        IMAGE_TAG = "1.0"
+    }
+
+    triggers {
+        pollSCM('* * * * *')  // Poll every minute
+    }
 
     stages {
-        stage('Apply Kubernetes Configs') {
+        stage('Checkout') {
             steps {
-                echo 'running..'
+                checkout scm
+            }
+        }
 
-                withDockerContainer(
-                    image: 'dlambrig/gradle-agent-intel:week10',
-                    args: """
-                        --network host 
-                        -u root 
-                        -v /home/savvas/.kube:/root/.kube 
-                        -v $HOME/.docker/certs.d:/etc/docker/certs.d 
-                        -v ${env.WORKSPACE}/auth:/auth 
-                        -v ${env.WORKSPACE}/certs:/certs 
-                        -v /var/run/docker.sock:/var/run/docker.sock
-                    """
-                ) {
-                    sh 'kubectl --insecure-skip-tls-verify apply --validate=false -f Chapter08/sample1/hazelcast.yaml'
-                    sh 'kubectl --insecure-skip-tls-verify apply --validate=false -f Chapter08/sample1/calculator.yaml'
+        stage('Make gradlew Executable') {
+            steps {
+                sh 'chmod +x Chapter08/sample1/gradlew'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                dir('Chapter08/sample1') {
+                    sh './gradlew clean build test jacocoTestReport --no-daemon'
                 }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('Chapter08/sample1') {
+                    sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh "docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
+            }
+        }
+
+        stage('Run Container Tests') {
+            steps {
+                script {
+                    sh """
+                        docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}
+                        sleep 5
+                        curl -s localhost:8080/div?a=6\\&b=2 | grep -q '3' && echo 'pass' || echo 'fail'
+                        curl -s localhost:8080/div?a=6\\&b=0 | grep -q 'error' && echo 'pass' || echo 'fail'
+                        docker rm -f calculator
+                    """
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                cleanWs()
             }
         }
     }
 
-    triggers {
-        pollSCM('H/2 * * * *')
+    post {
+        always {
+            echo "Done. Cleaned workspace."
+        }
     }
 }
 
