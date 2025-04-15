@@ -1,13 +1,13 @@
 pipeline {
     agent any
+
     environment {
-        REGISTRY_URL = "localhost:5001"
         IMAGE_NAME = "spantelis20/calculator"
         IMAGE_TAG = "1.0"
     }
 
     triggers {
-        pollSCM('* * * * *')  // Poll every minute
+        pollSCM('* * * * *') // Every minute
     }
 
     stages {
@@ -34,14 +34,19 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('Chapter08/sample1') {
-                    sh 'docker build -t ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG} .'
+                    sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
                 }
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Push Docker Image to Docker Hub') {
             steps {
-                sh "docker push ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}"
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push ${IMAGE_NAME}:${IMAGE_TAG}'
+                    }
+                }
             }
         }
 
@@ -49,7 +54,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker run -d --name calculator ${REGISTRY_URL}/${IMAGE_NAME}:${IMAGE_TAG}
+                        docker run -d --name calculator ${IMAGE_NAME}:${IMAGE_TAG}
                         sleep 5
                         curl -s localhost:8080/div?a=6\\&b=2 | grep -q '3' && echo 'pass' || echo 'fail'
                         curl -s localhost:8080/div?a=6\\&b=0 | grep -q 'error' && echo 'pass' || echo 'fail'
@@ -68,7 +73,7 @@ pipeline {
 
     post {
         always {
-            echo "Done. Cleaned workspace."
+            echo 'Done. Cleaned workspace.'
         }
     }
 }
