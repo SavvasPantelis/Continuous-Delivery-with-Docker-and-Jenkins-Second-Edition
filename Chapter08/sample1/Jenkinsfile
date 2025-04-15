@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'week11'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v /home/jenkins/sa.json:/home/jenkins/sa.json'
+        }
+    }
 
     environment {
         DOCKER_USER = 'spantelis20'
@@ -49,10 +54,8 @@ pipeline {
                 script {
                     sh 'docker run -d --name calculator $DOCKER_IMAGE'
                     sh 'sleep 5'
-
                     sh 'curl -s "http://localhost:8080/div?a=6&b=2" | grep -q 3 && echo pass || echo fail'
                     sh 'curl -s "http://localhost:8080/div?a=6&b=0" | grep -q error && echo pass || echo fail'
-
                     sh 'docker rm -f calculator'
                 }
             }
