@@ -1,87 +1,33 @@
 pipeline {
-    agent {
-        docker {
-            image 'week11'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v /home/jenkins/sa.json:/home/jenkins/sa.json'
-        }
-    }
-
-    environment {
-        DOCKER_USER = 'spantelis20'
-        DOCKER_IMAGE = "${DOCKER_USER}/calculator:1.0"
-    }
+    agent any
 
     stages {
-        stage('Checkout') {
+        stage('Apply Kubernetes Configs') {
             steps {
-                checkout scm
-            }
-        }
+                echo 'running..'
 
-        stage('Make gradlew Executable') {
-            steps {
-                sh 'chmod +x Chapter08/sample1/gradlew'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                dir('Chapter08/sample1') {
-                    sh './gradlew clean build test jacocoTestReport --no-daemon'
+                withDockerContainer(
+                    image: 'dlambrig/gradle-agent-intel:week10',
+                    args: """
+                        --network host 
+                        -u root 
+                        -v /home/savvas/.kube:/root/.kube 
+                        -v $HOME/.docker/certs.d:/etc/docker/certs.d 
+                        -v ${env.WORKSPACE}/auth:/auth 
+                        -v ${env.WORKSPACE}/certs:/certs 
+                        -v /var/run/docker.sock:/var/run/docker.sock
+                    """
+                ) {
+                    sh 'kubectl --insecure-skip-tls-verify apply --validate=false -f Chapter08/sample1/hazelcast.yaml'
+                    sh 'kubectl --insecure-skip-tls-verify apply --validate=false -f Chapter08/sample1/calculator.yaml'
                 }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                dir('Chapter08/sample1') {
-                    sh 'docker build -t $DOCKER_IMAGE .'
-                }
-            }
-        }
-
-        stage('Push Docker Image to Docker Hub') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
-                    sh 'docker push $DOCKER_IMAGE'
-                }
-            }
-        }
-
-        stage('Run Container Tests') {
-            steps {
-                script {
-                    sh 'docker run -d --name calculator $DOCKER_IMAGE'
-                    sh 'sleep 5'
-                    sh 'curl -s "http://localhost:8080/div?a=6&b=2" | grep -q 3 && echo pass || echo fail'
-                    sh 'curl -s "http://localhost:8080/div?a=6&b=0" | grep -q error && echo pass || echo fail'
-                    sh 'docker rm -f calculator'
-                }
-            }
-        }
-
-        stage('Deploy to GKE') {
-            steps {
-                dir('Chapter08/sample1') {
-                    sh 'kubectl config use-context release'
-                    sh 'kubectl apply -f hazelcast.yaml'
-                    sh 'kubectl apply -f calculator.yaml'
-                }
-            }
-        }
-
-        stage('Cleanup') {
-            steps {
-                cleanWs()
             }
         }
     }
 
-    post {
-        always {
-            echo 'Done. Cleaned workspace.'
-        }
+    triggers {
+        pollSCM('H/2 * * * *')
     }
 }
+
 
